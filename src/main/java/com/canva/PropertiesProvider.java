@@ -12,10 +12,10 @@ import java.util.Properties;
  */
 public class PropertiesProvider {
 
-    private static Properties getProperties(String serviceName, String flavor) throws IOException {
-        Properties properties = new Properties();
-        InputStream input = SQSProvider.class.getClassLoader().getResourceAsStream(SERVICE_NAME + "." + flavor + ".properties");
-        properties.load(input);
-        return properties;
-    }
+//    private static Properties getProperties(String serviceName, String flavor) throws IOException {
+//        Properties properties = new Properties();
+//        InputStream input = SQSProvider.class.getClassLoader().getResourceAsStream(SERVICE_NAME + "." + flavor + ".properties");
+//        properties.load(input);
+//        return properties;
+//    }
 }

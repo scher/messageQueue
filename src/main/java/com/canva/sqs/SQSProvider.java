@@ -40,6 +40,13 @@ public class SQSProvider {
 
 
 
+    private static Properties getProperties(String flavor) throws IOException {
+        Properties properties = new Properties();
+        InputStream input = SQSProvider.class.getClassLoader().getResourceAsStream(SERVICE_NAME + "." + flavor + ".properties");
+        properties.load(input);
+        return properties;
+    }
+
     private static String getFlavor() {
         return System.getenv(FLAVOR_KEY);
     }

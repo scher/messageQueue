@@ -1,4 +1,4 @@
-package com.canva.sqs.local;
+package com.canva.sqs.local.filesystem;
 
 import com.amazonaws.services.sqs.model.*;
 import com.canva.sqs.QueueService;
