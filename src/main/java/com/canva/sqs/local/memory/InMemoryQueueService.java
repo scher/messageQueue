@@ -2,30 +2,26 @@ package com.canva.sqs.local.memory;
 
 import com.amazonaws.services.sqs.model.*;
 import com.canva.sqs.QueueService;
-import com.canva.sqs.common.CloseableLock;
 import com.canva.sqs.local.Queue;
-import com.canva.sqs.local.memory.InMemoryQueue;
 import org.apache.http.annotation.ThreadSafe;
 
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manges queues and wraps queue responses to SQS API Results;
- * Queue size is not limited
+ * In Memory implementation of SQS
+ * <p>
+ * Manages queues and wraps queue responses to SQS API Results;
+ * <p>
+ * For some methods (According to AWS SQS Documentation) it is not clear how to react if queue does not exists.
+ * I decided to do nothing (do not throw exception in this case)
+ * <p>
  * QueueUrl = QueueName
  */
 @ThreadSafe
 public class InMemoryQueueService implements QueueService {
     private final ConcurrentHashMap<String, Queue> queues = new ConcurrentHashMap<>();
-
-    // creation/deletion of queue must use writeLock!
-    // operations on messages must use readLock
-    private final ReadWriteLock managementLock = new ReentrantReadWriteLock();
-
     private final Properties props;
 
     public InMemoryQueueService(Properties props) {
@@ -34,66 +30,58 @@ public class InMemoryQueueService implements QueueService {
     }
 
     /**
-     * @param queueUrl
-     * @param messageBody
-     * @return
-     * @throws {@link QueueDoesNotExistException} if specified queue does not exist. This part is missing in AWS
-     *         SQS Documentaion, so I decided to throw an execption as with {@link #getQueueUrl(String)} method
+     * Pushes message to queue and returns it's id.
+     * Returns empty result if queueUrl does not exists.
      */
-    @SuppressWarnings("JavaDoc")
     @Override
     public SendMessageResult sendMessage(String queueUrl, String messageBody) {
-        try (CloseableLock ignored = new CloseableLock(managementLock.readLock()).lock()) {
-            return Optional.ofNullable(queues.get(queueUrl))
-                    .map(queue -> queue.sendMessage(messageBody))
-                    .map(new SendMessageResult()::withMessageId)
-                    .orElseThrow(() -> new QueueDoesNotExistException("Queue: " +queueUrl + "does not exists"));
-        }
+        return Optional.ofNullable(queues.get(queueUrl))
+                .map(queue -> queue.sendMessage(messageBody))
+                .map(new SendMessageResult()::withMessageId)
+                .orElse(new SendMessageResult());
     }
 
     /**
      * Retrieves just one message for simplicity
-     *
-     * @param queueUrl
-     * @return
+     * Returns empty result if queueUrl does not exists
      */
     @Override
     public ReceiveMessageResult receiveMessage(String queueUrl) {
-        try (CloseableLock ignored = new CloseableLock(managementLock.readLock()).lock()) {
-            return Optional.ofNullable(queues.get(queueUrl))
-                    .map(Queue::receiveMessage)
-                    .map(new ReceiveMessageResult()::withMessages)
-                    .orElse(new ReceiveMessageResult());
-        }
+        return Optional.ofNullable(queues.get(queueUrl))
+                .flatMap(Queue::receiveMessage)
+                .map(new ReceiveMessageResult()::withMessages)
+                .orElse(new ReceiveMessageResult());
     }
 
+    /**
+     * Deletes message from queue
+     * Does nothing if queue does not exists or if "inflight" timeout already expired
+     */
     @Override
     public void deleteMessage(String queueUrl, String receiptHandle) {
-        try (CloseableLock ignored = new CloseableLock(managementLock.readLock()).lock()) {
-            Optional.ofNullable(queues.get(queueUrl)).ifPresent(q -> q.deleteMessage(receiptHandle));
-        }
+        Optional.ofNullable(queues.get(queueUrl)).ifPresent(q -> q.deleteMessage(receiptHandle));
     }
 
     /**
      * Creates queue specified by it queueName parameter.
      * Does nothing if queue with such name already exists.
-     *
-     * @param queueName
-     * @return
      */
     @Override
     public CreateQueueResult createQueue(String queueName) {
-        try (CloseableLock ignored = new CloseableLock(managementLock.writeLock()).lock()) {
-            queues.computeIfAbsent(queueName, q -> new InMemoryQueue(props));
-        }
+        queues.computeIfAbsent(queueName, q -> new InMemoryQueue(props));
         return new CreateQueueResult().withQueueUrl(queueName);
     }
 
+    /**
+     * Deletes queue even if there are message in this queue.
+     * Let clients, currently working with this queue finish there work.
+     * All subsequent requests to this queue by its name or url will achieve visibility of this action.
+     *
+     * @param queueUrl queueUrl
+     */
     @Override
     public void deleteQueue(String queueUrl) {
-        try (CloseableLock ignored = new CloseableLock(managementLock.writeLock()).lock()) {
-            Optional.ofNullable(queues.remove(queueUrl)).ifPresent(Queue::cleanup);
-        }
+        Optional.ofNullable(queues.remove(queueUrl)).ifPresent(Queue::cleanup);
     }
 
     @Override
@@ -106,7 +94,7 @@ public class InMemoryQueueService implements QueueService {
         if (queues.containsKey(queueName)) {
             return new GetQueueUrlResult().withQueueUrl(queueName);
         } else {
-            throw new QueueDoesNotExistException("Queue: " + queueName + " does not exist");
+            throw new QueueDoesNotExistException("Queue: " + queueName + " does not exist"); //according to AWS SQS
         }
     }
 }

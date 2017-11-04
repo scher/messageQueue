@@ -6,12 +6,13 @@ import com.canva.sqs.local.Queue;
 import com.canva.sqs.local.SimpleIdsGenerator;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.*;
 
 /**
+ * Queue size is not limited
+ *
  * @author Alexander Pronin
  * @since 04/11/2017
  */
@@ -25,32 +26,33 @@ public class InMemoryQueue implements Queue {
 
     private final IdsGenerator idsGenerator = new SimpleIdsGenerator();
 
-    public InMemoryQueue(Properties props) {
+    InMemoryQueue(Properties props) {
         this.props = props;
     }
 
     @Override
-    public @Nonnull String sendMessage(String messageBody) {
+    @Nonnull
+    public String sendMessage(String messageBody) {
         String messageId = idsGenerator.generateMessageId();
         messages.add(new Message().withBody(messageBody).withMessageId(String.valueOf(messageId)));
         return messageId;
     }
 
     @Override
-    public @Nullable Message receiveMessage() {
-        Message message = messages.poll();
-        if (message == null) {
-            return null;
-        } else {
+    public Optional<Message> receiveMessage() {
+        return Optional.ofNullable(messages.poll()).map(message -> {
             String receiptHandle = idsGenerator.generateRecipientHandlerId(message);
             message.withReceiptHandle(receiptHandle);
 
+            // move message back to messages queue and clear receiptHandle
+            // does nothing if message was deleted by recipient
             invalidator.schedule(
-                    () -> Optional.ofNullable(inFlight.remove(receiptHandle)).ifPresent(m -> messages.addFirst(m.withReceiptHandle(null))),
-                    Long.valueOf(props.getProperty(INFLIGHT_TIMEOUT_SECONDS_KEY)), TimeUnit.SECONDS);
-
+                    () -> Optional.ofNullable(inFlight.remove(receiptHandle))
+                            .ifPresent(m -> messages.addFirst(m.withReceiptHandle(null))),
+                    Long.valueOf(props.getProperty(INFLIGHT_TIMEOUT_SECONDS_KEY)),
+                    TimeUnit.SECONDS);
             return message;
-        }
+        });
     }
 
     @Override

@@ -2,6 +2,12 @@ package com.canva.sqs;
 
 import com.amazonaws.services.sqs.model.*;
 
+/**
+ * Not that much comments in this class.
+ * Please refer to comments in implementation classes.
+ * Implementation details could vary to achieve trade offs between simplicity and performance.
+ * Hence I decided to put more comments regarding implementation details to those classes.
+ */
 public interface QueueService {
 
     //
@@ -22,12 +28,22 @@ public interface QueueService {
 
     // - delete
     //   deletes a message from the queue that was received by pull().
+
     void deleteMessage(String queueUrl, String receiptHandle);
 
     // Queue management section
     CreateQueueResult createQueue(String queueName);
+
+    /**
+     * Deletes queue even if there are message in this queue.
+     */
     void deleteQueue(String queueUrl);
+
+    /**
+     * @return List of currently available queues
+     */
     ListQueuesResult listQueues();
+
     GetQueueUrlResult getQueueUrl(String queueName);
 
 }

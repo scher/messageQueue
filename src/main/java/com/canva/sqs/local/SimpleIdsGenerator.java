@@ -24,6 +24,7 @@ public class SimpleIdsGenerator implements IdsGenerator {
      * @param message
      * @return
      */
+    @SuppressWarnings("JavaDoc")
     public String generateRecipientHandlerId(Message message) {
         return String.valueOf(recipientsHandleIds.getAndIncrement());
     }
