@@ -21,6 +21,7 @@ public class InMemoryQueue implements Queue {
     private final Properties props;
 
     private final ConcurrentLinkedDeque<Message> messages = new ConcurrentLinkedDeque<>();
+    // receiptHandle -> Message
     private final ConcurrentHashMap<String, Message> inFlight = new ConcurrentHashMap<>();
     private final ScheduledExecutorService invalidator = Executors.newSingleThreadScheduledExecutor();
 

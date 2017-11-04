@@ -6,6 +6,9 @@ import org.apache.http.annotation.ThreadSafe;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Simple by efficient ids generator based on atomics.
+ * Think it is enough at least for in-memory solution.
+ *
  * @author Alexander Pronin
  * @since 04/11/2017
  */
@@ -20,11 +23,10 @@ public class SimpleIdsGenerator implements IdsGenerator {
     }
 
     /**
-     * Ignores message content
-     * @param message
-     * @return
+     * Probably recipientHandler should be calculated based on message content somehow,
+     * but something more tricky than just taking MD5.
+     * Let's ignore it for the purpose of simplicity
      */
-    @SuppressWarnings("JavaDoc")
     public String generateRecipientHandlerId(Message message) {
         return String.valueOf(recipientsHandleIds.getAndIncrement());
     }

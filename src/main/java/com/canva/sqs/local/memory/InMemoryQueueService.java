@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In Memory implementation of SQS
  * <p>
- * Manages queues and wraps queue responses to SQS API Results;
+ * Manages queues and maps queue responses to SQS API Results;
+ * This implementation is abstracted from messages management.
  * <p>
  * For some methods (According to AWS SQS Documentation) it is not clear how to react if queue does not exists.
  * I decided to do nothing (do not throw exception in this case)
