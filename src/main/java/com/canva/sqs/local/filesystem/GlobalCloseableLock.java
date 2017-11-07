@@ -3,6 +3,8 @@ package com.canva.sqs.local.filesystem;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,8 +17,8 @@ public class GlobalCloseableLock implements AutoCloseable {
     private final FileChannel channel;
     private FileLock fileLock;
 
-    public GlobalCloseableLock(FileChannel channel) {
-        this.channel = channel;
+    public GlobalCloseableLock(String fileName) throws IOException {
+        this.channel = FileChannel.open(Paths.get(fileName), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
     }
 
     @Override
@@ -25,10 +27,16 @@ public class GlobalCloseableLock implements AutoCloseable {
             if (fileLock != null) {
                 fileLock.release();
             }
+            channel.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         GLOBAL_LOCK.unlock();
+        try {
+            channel.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public GlobalCloseableLock lock() throws IOException {

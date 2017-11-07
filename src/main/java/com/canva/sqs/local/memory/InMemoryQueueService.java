@@ -1,7 +1,10 @@
 package com.canva.sqs.local.memory;
 
-import com.amazonaws.services.sqs.model.*;
-import com.canva.sqs.QueueService;
+import com.amazonaws.services.sqs.model.CreateQueueResult;
+import com.amazonaws.services.sqs.model.GetQueueUrlResult;
+import com.amazonaws.services.sqs.model.ListQueuesResult;
+import com.amazonaws.services.sqs.model.QueueDoesNotExistException;
+import com.canva.sqs.local.AbstractLocalQueue;
 import com.canva.sqs.local.Queue;
 import org.apache.http.annotation.ThreadSafe;
 
@@ -21,46 +24,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * QueueUrl = QueueName
  */
 @ThreadSafe
-public class InMemoryQueueService implements QueueService {
+public class InMemoryQueueService extends AbstractLocalQueue {
     private final ConcurrentHashMap<String, Queue> queues = new ConcurrentHashMap<>();
     private final Properties props;
 
     public InMemoryQueueService(Properties props) {
         System.out.println("Initializing In-memory queue service");
         this.props = props;
-    }
-
-    /**
-     * Pushes message to queue and returns it's id.
-     * Returns empty result if queueUrl does not exists.
-     */
-    @Override
-    public SendMessageResult sendMessage(String queueUrl, String messageBody) {
-        return Optional.ofNullable(queues.get(queueUrl))
-                .map(queue -> queue.sendMessage(messageBody))
-                .map(new SendMessageResult()::withMessageId)
-                .orElse(new SendMessageResult());
-    }
-
-    /**
-     * Retrieves just one message for simplicity
-     * Returns empty result if queueUrl does not exists
-     */
-    @Override
-    public ReceiveMessageResult receiveMessage(String queueUrl) {
-        return Optional.ofNullable(queues.get(queueUrl))
-                .flatMap(Queue::receiveMessage)
-                .map(new ReceiveMessageResult()::withMessages)
-                .orElse(new ReceiveMessageResult());
-    }
-
-    /**
-     * Deletes message from queue
-     * Does nothing if queue does not exists or if "inflight" timeout already expired
-     */
-    @Override
-    public void deleteMessage(String queueUrl, String receiptHandle) {
-        Optional.ofNullable(queues.get(queueUrl)).ifPresent(q -> q.deleteMessage(receiptHandle));
     }
 
     /**
@@ -82,7 +52,7 @@ public class InMemoryQueueService implements QueueService {
      */
     @Override
     public void deleteQueue(String queueUrl) {
-        Optional.ofNullable(queues.remove(queueUrl)).ifPresent(Queue::cleanup);
+        Optional.ofNullable(queues.remove(queueUrl)).ifPresent(queue -> queue.cleanup(queueUrl));
     }
 
     @Override
@@ -97,5 +67,10 @@ public class InMemoryQueueService implements QueueService {
         } else {
             throw new QueueDoesNotExistException("Queue: " + queueName + " does not exist"); //according to AWS SQS
         }
+    }
+
+    @Override
+    protected Queue getQueue(String queueUrl) {
+        return queues.get(queueUrl);
     }
 }

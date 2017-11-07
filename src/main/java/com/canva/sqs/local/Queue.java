@@ -16,11 +16,11 @@ import java.util.Optional;
  */
 public interface Queue {
     @Nonnull
-    String sendMessage(String messageBody);
+    String sendMessage(String queueUrl, String messageBody);
 
-    Optional<Message> receiveMessage();
+    Optional<Message> receiveMessage(String queueUrl);
 
-    void deleteMessage(String receiptHandle);
+    void deleteMessage(String queueUrl, String receiptHandle);
 
-    void cleanup();
+    void cleanup(String queueUrl);
 }

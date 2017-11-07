@@ -33,18 +33,19 @@ public class InMemoryQueue implements Queue {
 
     @Override
     @Nonnull
-    public String sendMessage(String messageBody) {
+    public String sendMessage(String ignored, String messageBody) {
         String messageId = idsGenerator.generateMessageId();
         messages.add(new Message().withBody(messageBody).withMessageId(String.valueOf(messageId)));
         return messageId;
     }
 
     @Override
-    public Optional<Message> receiveMessage() {
+    public Optional<Message> receiveMessage(String queueUrl) {
         return Optional.ofNullable(messages.poll()).map(message -> {
             String receiptHandle = idsGenerator.generateRecipientHandlerId(message);
             message.withReceiptHandle(receiptHandle);
 
+            inFlight.put(receiptHandle, message);
             // move message back to messages queue and clear receiptHandle
             // does nothing if message was deleted by recipient
             invalidator.schedule(
@@ -57,12 +58,12 @@ public class InMemoryQueue implements Queue {
     }
 
     @Override
-    public void deleteMessage(String receiptHandle) {
+    public void deleteMessage(String ignored, String receiptHandle) {
         inFlight.remove(receiptHandle);
     }
 
     @Override
-    public void cleanup() {
+    public void cleanup(String ignored) {
         invalidator.shutdown();
     }
 }
