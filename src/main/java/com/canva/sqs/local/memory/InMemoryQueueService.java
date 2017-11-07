@@ -47,7 +47,7 @@ public class InMemoryQueueService extends AbstractLocalQueue {
      * Deletes queue even if there are message in this queue.
      * Let clients, currently working with this queue finish there work.
      * All subsequent requests to this queue by its name or url will achieve visibility of this action.
-     *
+     * Does nothing if queue does not exists
      * @param queueUrl queueUrl
      */
     @Override

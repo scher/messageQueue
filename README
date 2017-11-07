@@ -65,9 +65,9 @@ Scope
 You have 4 tasks to complete:
 
 1. write a QueueService interface to cater for just the essential actions:
-DONE   - push     pushes a single message onto a specified queue
-DONE   - pull     receives a single message from a specified queue
-DONE   - delete   deletes a received message
+   - push     pushes a single message onto a specified queue
+   - pull     receives a single message from a specified queue
+   - delete   deletes a received message
 
 2. implement an in-memory version of QueueService; The in-memory version should
    be thread-safe.
