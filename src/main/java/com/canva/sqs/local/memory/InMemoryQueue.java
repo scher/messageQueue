@@ -17,7 +17,7 @@ import java.util.concurrent.*;
  * @since 04/11/2017
  */
 public class InMemoryQueue implements Queue {
-    private static final String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
+    public static final String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
     private final Properties props;
 
     private final ConcurrentLinkedDeque<Message> messages = new ConcurrentLinkedDeque<>();
@@ -49,12 +49,20 @@ public class InMemoryQueue implements Queue {
             // move message back to messages queue and clear receiptHandle
             // does nothing if message was deleted by recipient
             invalidator.schedule(
-                    () -> Optional.ofNullable(inFlight.remove(receiptHandle))
-                            .ifPresent(m -> messages.addFirst(m.withReceiptHandle(null))),
+                    new InvalidationTask(receiptHandle),
                     Long.valueOf(props.getProperty(INFLIGHT_TIMEOUT_SECONDS_KEY)),
                     TimeUnit.SECONDS);
             return message;
         });
+    }
+
+    /**
+     * TESTING purpose only!
+     *
+     * @param receiptHandle message to invalidate inflight
+     */
+    public void invalidateNow(String receiptHandle) {
+        new InvalidationTask(receiptHandle).run();
     }
 
     @Override
@@ -65,5 +73,21 @@ public class InMemoryQueue implements Queue {
     @Override
     public void cleanup(String ignored) {
         invalidator.shutdown();
+    }
+
+    // pulled out to inner class for testing purpose
+    private class InvalidationTask implements Runnable {
+
+        private String receiptHandle;
+
+        private InvalidationTask(String receiptHandle) {
+            this.receiptHandle = receiptHandle;
+        }
+
+        @Override
+        public void run() {
+            Optional.ofNullable(inFlight.remove(receiptHandle))
+                    .ifPresent(m -> messages.addFirst(m.withReceiptHandle(null)));
+        }
     }
 }

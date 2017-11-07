@@ -23,4 +23,11 @@ public interface Queue {
     void deleteMessage(String queueUrl, String receiptHandle);
 
     void cleanup(String queueUrl);
+
+    /**
+     * TESTING purpose only!
+     *
+     * @param receiptHandle message to invalidate inflight
+     */
+    void invalidateNow(String receiptHandle);
 }

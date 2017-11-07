@@ -46,4 +46,10 @@ public abstract class AbstractLocalQueue implements QueueService {
 
     protected abstract Queue getQueue(String queueUrl);
 
+    /**
+     * TESTING purpose only!
+     */
+    public void invalidateNow(String queueUrl, String receiptHandler) {
+        getQueue(queueUrl).invalidateNow(receiptHandler);
+    }
 }

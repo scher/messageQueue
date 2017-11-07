@@ -141,13 +141,9 @@ public class FileQueue implements Queue {
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        Path rootPath = Paths.get("/tmp/dirr");
-        Files.walk(rootPath, FileVisitOption.FOLLOW_LINKS)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .peek(System.out::println)
-                .forEach(File::delete);
+    @Override
+    public void invalidateNow(String receiptHandle) {
+
     }
 
     @SuppressWarnings("WeakerAccess")
