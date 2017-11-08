@@ -15,7 +15,7 @@ public class SqsQueueService implements QueueService {
     // terms of how well they map to the implementation intended for a production environment.
     //
     public SqsQueueService() {
-        System.out.println("I'm alive Master SqsQueueService");
+        System.out.println("I'm alive Master");
         this.sqsClient = new AmazonSQSClient();
     }
 

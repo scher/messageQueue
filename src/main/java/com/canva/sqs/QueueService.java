@@ -46,5 +46,8 @@ public interface QueueService {
 
     GetQueueUrlResult getQueueUrl(String queueName);
 
+    /**
+     * TESTING purpose only!
+     */
     void invalidateNow(String queueUrl, String receiptHandle);
 }

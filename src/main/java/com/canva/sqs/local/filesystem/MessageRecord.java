@@ -3,6 +3,8 @@ package com.canva.sqs.local.filesystem;
 import com.amazonaws.services.sqs.model.Message;
 
 /**
+ * Helper DTO class for saving relevant (for our simple sqs implementation) data in file
+ *
  * @author Alexander Pronin
  * @since 06/11/2017
  */

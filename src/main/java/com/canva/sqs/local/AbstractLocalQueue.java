@@ -8,6 +8,8 @@ import com.canva.sqs.QueueService;
 import java.util.Optional;
 
 /**
+ * QueueServices abstraction relevant both for File-based SQS and Inmemory SQS
+ *
  * @author Alexander Pronin
  * @since 06/11/2017
  */

@@ -3,6 +3,7 @@ package com.canva.sqs.local.filesystem;
 import com.amazonaws.services.sqs.model.*;
 import com.canva.sqs.local.AbstractLocalQueue;
 import com.canva.sqs.local.Queue;
+import org.apache.http.annotation.ThreadSafe;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,7 +18,15 @@ import static java.util.stream.Collectors.toList;
 
 /**
  *
+ * File based implementation of SQS
+ * <p>
+ * Manages queues and maps queue responses to SQS API Results;
+ * This implementation is abstracted from messages management.
+ * <p>
+ * For some methods (According to AWS SQS Documentation) it is not clear how to react if queue does not exists.
+ * I decided to do nothing (do not throw exception in this case)
  */
+@ThreadSafe
 public class FileQueueService extends AbstractLocalQueue {
     public static final String SQS_QUEUES_DIR_KEY = "sqs.queues.dir";
 
@@ -67,6 +76,10 @@ public class FileQueueService extends AbstractLocalQueue {
         return FileQueue.getInstance();
     }
 
+    /**
+     * Creates queue specified by it queueName parameter.
+     * Does nothing if queue with such name already exists.
+     */
     @Override
     public CreateQueueResult createQueue(String queueName) {
         FileQueue.init(queueName);
@@ -75,24 +88,30 @@ public class FileQueueService extends AbstractLocalQueue {
         return new CreateQueueResult().withQueueUrl(queueUrl.getQueueUrl());
     }
 
-    private void createQueueSemaphore(String queueSemaphore) {
-        try {
-            Files.createFile(Paths.get(queueSemaphore).toAbsolutePath());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
+    /**
+     * Deletes queue even if there are message in this queue.
+     * <p>
+     * Blocks if there are clients currently working with this queue.
+     * Livelock is possible
+     * <p>
+     * All subsequent requests to this queue by its name or url will achieve visibility of this action.
+     * Does nothing if queue does not exists
+     *
+     * @param queueUrl queueUrl
+     */
     @Override
     public void deleteQueue(String queueUrl) {
-        SemaphoreFile.executeIfZero(queueUrl, () -> {
-            getQueue(queueUrl).cleanup(queueUrl);
-            try {
-                Files.delete(Paths.get(SEMAPHORE.getPath(queueUrl).toString()));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
+        boolean isExecuted;
+        do {
+            isExecuted = SemaphoreFile.executeIfZero(queueUrl, () -> {
+                getQueue(queueUrl).cleanup(queueUrl);
+                try {
+                    Files.delete(Paths.get(SEMAPHORE.getPath(queueUrl).toString()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        } while (!isExecuted);
     }
 
     @Override
@@ -118,5 +137,13 @@ public class FileQueueService extends AbstractLocalQueue {
             e.printStackTrace();
         }
         return new GetQueueUrlResult();
+    }
+
+    private void createQueueSemaphore(String queueSemaphore) {
+        try {
+            Files.createFile(Paths.get(queueSemaphore).toAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

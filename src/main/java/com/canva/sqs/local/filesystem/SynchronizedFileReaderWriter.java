@@ -1,6 +1,7 @@
 package com.canva.sqs.local.filesystem;
 
 import com.amazonaws.services.sqs.model.Message;
+import org.apache.http.annotation.ThreadSafe;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,10 +15,14 @@ import static java.nio.file.StandardOpenOption.*;
 import static java.util.stream.Collectors.toList;
 
 /**
+ * Stateless utility class for atomic writing and reading for file.
+ *
+ * @see GlobalCloseableLock
  * @author Alexander Pronin
  * @since 06/11/2017
  */
 @SuppressWarnings("WeakerAccess")
+@ThreadSafe
 public class SynchronizedFileReaderWriter {
     private SynchronizedFileReaderWriter() {
     }

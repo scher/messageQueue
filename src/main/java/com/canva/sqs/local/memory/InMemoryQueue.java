@@ -4,6 +4,7 @@ import com.amazonaws.services.sqs.model.Message;
 import com.canva.sqs.local.IdsGenerator;
 import com.canva.sqs.local.Queue;
 import com.canva.sqs.local.SimpleIdsGenerator;
+import org.apache.http.annotation.ThreadSafe;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -11,11 +12,18 @@ import java.util.Properties;
 import java.util.concurrent.*;
 
 /**
+ * Inmemory thread-safe queue implementation
+ *
  * Queue size is not limited
+ *
+ * Uses "eager" invalidation of inflight message.
+ * Submits scheduled tasks to invalidate inflight messages.
+ *
  *
  * @author Alexander Pronin
  * @since 04/11/2017
  */
+@ThreadSafe
 public class InMemoryQueue implements Queue {
     public static final String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
     private final Properties props;
