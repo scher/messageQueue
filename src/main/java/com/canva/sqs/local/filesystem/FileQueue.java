@@ -3,6 +3,7 @@ package com.canva.sqs.local.filesystem;
 import com.amazonaws.services.sqs.model.Message;
 import com.canva.sqs.local.IdsGenerator;
 import com.canva.sqs.local.Queue;
+import org.apache.http.annotation.ThreadSafe;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -15,22 +16,31 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static com.canva.sqs.local.filesystem.FileDescriptor.*;
 import static com.canva.sqs.local.filesystem.SynchronizedFileReaderWriter.*;
 import static java.util.stream.Collectors.*;
 
 /**
+ * Durable ThreadSafe and single-host-safe file based queue implementation.
+ * <p>
+ * Suitable for single-host usage.
+ * <p>
  * Queue size is not limited
+ * This implementation leverages {@link GlobalCloseableLock} to achieve exclusive locking.
+ * <p>
+ * Actually queue implementation is stateless. Singleton pattern used for dependency injection in {@link com.canva.sqs.local.AbstractLocalQueue}.
+ * <p>
+ * Uses "lazy" invalidation of inflight message.
+ * Queue tries to invalidate messages on each {@link #receiveMessage(String)} request.
  *
  * @author Alexander Pronin
+ * @see GlobalCloseableLock
+ * @see com.canva.sqs.local.AbstractLocalQueue
  * @since 04/11/2017
  */
+@ThreadSafe
 public class FileQueue implements Queue {
-    private static final String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
     private static final String SQS_QUEUES_DIR_KEY = "sqs.queues.dir";
-    private static final String MESSAGES_FILE = "messages";
-    private static final String INFLIGHT_FILE = "inflight";
-    private static final String CONFIG_DIR = "config";
-    private static final String IDS_CONFIG_FILE = "ids";
 
     private static final Function<List<String>, Map<Boolean, List<Message>>> FIRST_MESSAGE_EXTRACTOR =
             messageRecords -> {
@@ -69,50 +79,31 @@ public class FileQueue implements Queue {
     }
 
     private IdsGenerator getIdsGenerator(String queueDir) {
-        return new FileIdsGenerator(getIdsGeneratorConfigFile(queueDir));
-    }
-
-    private static Path getConfigDir(String queueDir) {
-        return Paths.get(queueDir, CONFIG_DIR);
-    }
-
-    private static Path getIdsGeneratorConfigFile(String queueDir) {
-        return Paths.get(getConfigDir(queueDir).toString(), IDS_CONFIG_FILE);
-    }
-
-    private static Path getInflightFile(String queueDir) {
-        return Paths.get(queueDir, INFLIGHT_FILE);
-    }
-
-    private static Path getMessagesFile(String queueDir) {
-        return Paths.get(queueDir, MESSAGES_FILE);
+        return new FileIdsGenerator(IDS_CONFIG.getPath(queueDir));
     }
 
     private FileQueue() {
     }
 
-    //done
     @Override
     @Nonnull
     public String sendMessage(String queueUrl, String messageBody) {
-        invalidateInflight(queueUrl);
         String messageId = getIdsGenerator(queueUrl).generateMessageId();
         Message message = new Message().withBody(messageBody).withMessageId(String.valueOf(messageId));
-        addMessageToEndOfFile(Collections.singletonList(message), getMessagesFile(queueUrl));
+        addMessageToEndOfFile(Collections.singletonList(message), MESSAGES.getPath(queueUrl));
         return messageId;
     }
 
-    //done
     @Override
     public Optional<Message> receiveMessage(String queueUrl) {
         invalidateInflight(queueUrl);
-        return removeMessagesFromFile(getMessagesFile(queueUrl), FIRST_MESSAGE_EXTRACTOR)
+        return removeMessagesFromFile(MESSAGES.getPath(queueUrl), FIRST_MESSAGE_EXTRACTOR)
                 .stream()
                 .findFirst()
                 .map(message -> {
                     String receiptHandle = getIdsGenerator(queueUrl).generateRecipientHandlerId(message);
                     message.withReceiptHandle(receiptHandle);
-                    addMessageToEndOfFile(Collections.singletonList(message), getInflightFile(queueUrl));
+                    addMessageToEndOfFile(Collections.singletonList(message), INFLIGHT.getPath(queueUrl));
                     return message;
                 });
     }
@@ -120,9 +111,9 @@ public class FileQueue implements Queue {
     private void invalidateInflight(String queueUrl) {
         long curTime = System.currentTimeMillis();
         addMessagesToBeginningOfFile(
-                removeMessagesFromFile(getInflightFile(queueUrl),
+                removeMessagesFromFile(INFLIGHT.getPath(queueUrl),
                         BY_INFLIGHT_DELAY_SPLITTER.apply(getInflightDelay(), curTime)),
-                getMessagesFile(queueUrl)
+                MESSAGES.getPath(queueUrl)
         );
     }
 
@@ -130,16 +121,16 @@ public class FileQueue implements Queue {
     public void invalidateNow(String queueUrl, String receiptHandle) {
         addMessagesToBeginningOfFile(
                 removeMessagesFromFile(
-                        getInflightFile(queueUrl),
+                        INFLIGHT.getPath(queueUrl),
                         BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle)
                 ),
-                getMessagesFile(queueUrl)
+                MESSAGES.getPath(queueUrl)
         );
     }
 
     @Override
     public void deleteMessage(String queueUrl, String receiptHandle) {
-        removeMessagesFromFile(getInflightFile(queueUrl), BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle));
+        removeMessagesFromFile(INFLIGHT.getPath(queueUrl), BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle));
     }
 
     @Override
@@ -160,18 +151,14 @@ public class FileQueue implements Queue {
     public static void init(String queueName) {
         String queuesBaseDirStr = properties.getProperty(SQS_QUEUES_DIR_KEY);
 
-        Path queueDir = Paths.get(queuesBaseDirStr, queueName);
-        Path messagesFile = getMessagesFile(queueDir.toString());
-        Path inflightFile = getInflightFile(queueDir.toString());
-        Path configDir = getConfigDir(queueDir.toString());
+        Path queueUrl = Paths.get(queuesBaseDirStr, queueName);
 
         try (GlobalCloseableLock ignored = new GlobalCloseableLock(queuesBaseDirStr).lock()) {
-            if (!Files.exists(queueDir)) {
-                Files.createDirectory(queueDir);
-                Files.createDirectory(configDir);
-                Files.createFile(getIdsGeneratorConfigFile(queueDir.toString()));
-                Files.createFile(messagesFile);
-                Files.createFile(inflightFile);
+            if (!Files.exists(queueUrl)) {
+                Files.createDirectory(queueUrl);
+                Files.createFile(IDS_CONFIG.getPath(queueUrl.toString()));
+                Files.createFile(MESSAGES.getPath(queueUrl.toString()));
+                Files.createFile(INFLIGHT.getPath(queueUrl.toString()));
             }
         } catch (IOException e) {
             e.printStackTrace();

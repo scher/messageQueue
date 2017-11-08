@@ -12,14 +12,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static com.canva.sqs.local.filesystem.FileDescriptor.SEMAPHORE;
 import static java.util.stream.Collectors.toList;
 
+/**
+ *
+ */
 public class FileQueueService extends AbstractLocalQueue {
     public static final String SQS_QUEUES_DIR_KEY = "sqs.queues.dir";
-    private static final String SEMAPHORE = "semaphore";
 
-    private String queuesBaseDirStr;
-    private Path queuesBaseDir;
+    private final String queuesBaseDirStr;
+    private final Path queuesBaseDir;
 
     public FileQueueService(Properties props) {
         System.out.println("Initializing File System Queue Service");
@@ -28,37 +31,33 @@ public class FileQueueService extends AbstractLocalQueue {
         FileQueue.setProperties(props);
     }
 
-    private String getQueueSemaphore(String queueUrl) {
-        return Paths.get(queueUrl, SEMAPHORE).toString();
-    }
-
     @Override
     public SendMessageResult sendMessage(String queueUrl, String messageBody) {
-        SemaphoreFile.increaseCounter(getQueueSemaphore(queueUrl));
+        SemaphoreFile.increaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         try {
             return super.sendMessage(queueUrl, messageBody);
         } finally {
-            SemaphoreFile.decreaseCounter(getQueueSemaphore(queueUrl));
+            SemaphoreFile.decreaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         }
     }
 
     @Override
     public ReceiveMessageResult receiveMessage(String queueUrl) {
-        SemaphoreFile.increaseCounter(getQueueSemaphore(queueUrl));
+        SemaphoreFile.increaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         try {
             return super.receiveMessage(queueUrl);
         } finally {
-            SemaphoreFile.decreaseCounter(getQueueSemaphore(queueUrl));
+            SemaphoreFile.decreaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         }
     }
 
     @Override
     public void deleteMessage(String queueUrl, String receiptHandle) {
-        SemaphoreFile.increaseCounter(getQueueSemaphore(queueUrl));
+        SemaphoreFile.increaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         try {
             super.deleteMessage(queueUrl, receiptHandle);
         } finally {
-            SemaphoreFile.decreaseCounter(getQueueSemaphore(queueUrl));
+            SemaphoreFile.decreaseCounter(SEMAPHORE.getPath(queueUrl).toString());
         }
 
     }
@@ -72,7 +71,7 @@ public class FileQueueService extends AbstractLocalQueue {
     public CreateQueueResult createQueue(String queueName) {
         FileQueue.init(queueName);
         GetQueueUrlResult queueUrl = getQueueUrl(queueName);
-        createQueueSemaphore(getQueueSemaphore(queueUrl.getQueueUrl()));
+        createQueueSemaphore(SEMAPHORE.getPath(queueUrl.getQueueUrl()).toString());
         return new CreateQueueResult().withQueueUrl(queueUrl.getQueueUrl());
     }
 
@@ -89,7 +88,7 @@ public class FileQueueService extends AbstractLocalQueue {
         SemaphoreFile.executeIfZero(queueUrl, () -> {
             getQueue(queueUrl).cleanup(queueUrl);
             try {
-                Files.delete(Paths.get(getQueueSemaphore(queueUrl)));
+                Files.delete(Paths.get(SEMAPHORE.getPath(queueUrl).toString()));
             } catch (IOException e) {
                 e.printStackTrace();
             }

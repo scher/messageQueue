@@ -14,8 +14,6 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
- * {@inheritDoc}
- * <p>
  * Durable Ids Generator that stores current state in file.
  * <p>
  * Ids generation is suitable for single-host usage.
