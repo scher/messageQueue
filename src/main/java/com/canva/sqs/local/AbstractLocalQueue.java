@@ -1,5 +1,6 @@
 package com.canva.sqs.local;
 
+import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import com.amazonaws.services.sqs.model.SendMessageResult;
 import com.canva.sqs.QueueService;
@@ -31,6 +32,10 @@ public abstract class AbstractLocalQueue implements QueueService {
     public ReceiveMessageResult receiveMessage(String queueUrl) {
         return Optional.ofNullable(getQueue(queueUrl))
                 .flatMap(q -> q.receiveMessage(queueUrl))
+                .map(m -> new Message()
+                        .withMessageId(m.getMessageId())
+                        .withBody(m.getBody())
+                        .withReceiptHandle(m.getReceiptHandle()))
                 .map(new ReceiveMessageResult()::withMessages)
                 .orElse(new ReceiveMessageResult());
     }
@@ -50,6 +55,6 @@ public abstract class AbstractLocalQueue implements QueueService {
      * TESTING purpose only!
      */
     public void invalidateNow(String queueUrl, String receiptHandler) {
-        getQueue(queueUrl).invalidateNow(receiptHandler);
+        getQueue(queueUrl).invalidateNow(queueUrl, receiptHandler);
     }
 }

@@ -18,7 +18,8 @@ public class GlobalCloseableLock implements AutoCloseable {
     private FileLock fileLock;
 
     public GlobalCloseableLock(String fileName) throws IOException {
-        this.channel = FileChannel.open(Paths.get(fileName), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+        this.channel =
+                FileChannel.open(Paths.get(fileName + ".lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
     }
 
     @Override

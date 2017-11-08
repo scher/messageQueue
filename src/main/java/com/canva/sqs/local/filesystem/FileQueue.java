@@ -1,7 +1,6 @@
 package com.canva.sqs.local.filesystem;
 
 import com.amazonaws.services.sqs.model.Message;
-import com.canva.sqs.SQSRunner;
 import com.canva.sqs.local.IdsGenerator;
 import com.canva.sqs.local.Queue;
 
@@ -34,34 +33,39 @@ public class FileQueue implements Queue {
     private static final String IDS_CONFIG_FILE = "ids";
 
     private static final Function<List<String>, Map<Boolean, List<Message>>> FIRST_MESSAGE_EXTRACTOR =
-            strings -> {
+            messageRecords -> {
                 final int[] i = {1};
-                return strings.stream()
+                return messageRecords.stream()
                         .map(MessageRecord::fromStringToMessage)
                         .collect(partitioningBy(m -> i[0]++ == 1));
             };
 
     private static final Function<String, Function<List<String>, Map<Boolean, List<Message>>>>
             BY_RECEIPT_HANDLER_SPLITTER =
-            s -> strings -> strings.stream()
+            s -> messageRecords -> messageRecords.stream()
                     .map(MessageRecord::fromStringToMessage)
                     .collect(partitioningBy(m -> m.getReceiptHandle().equals(s)));
 
     private static final BiFunction<Long, Long, Function<List<String>, Map<Boolean, List<Message>>>>
             BY_INFLIGHT_DELAY_SPLITTER =
-            (inflightDelay, curTime) -> strings -> strings.stream().map(MessageRecord::fromString)
+            (inflightDelay, curTime) -> messageRecords -> messageRecords.stream().map(MessageRecord::fromString)
                     .collect(partitioningBy(mr -> curTime - mr.getInflightSince() > inflightDelay,
                             mapping(MessageRecord::toMessage, toList())));
 
     private static final FileQueue INSTANCE = new FileQueue();
+    private static Properties properties;
 
     @SuppressWarnings("WeakerAccess")
     public static Queue getInstance() {
         return INSTANCE;
     }
 
+    public static void setProperties(Properties properties) {
+        FileQueue.properties = properties;
+    }
+
     private long getInflightDelay() {
-        return Long.parseLong(SQSRunner.getInstance().getProperty(INFLIGHT_TIMEOUT_SECONDS_KEY));
+        return Long.parseLong(properties.getProperty(INFLIGHT_TIMEOUT_SECONDS_KEY));
     }
 
     private IdsGenerator getIdsGenerator(String queueDir) {
@@ -72,7 +76,7 @@ public class FileQueue implements Queue {
         return Paths.get(queueDir, CONFIG_DIR);
     }
 
-    private Path getIdsGeneratorConfigFile(String queueDir) {
+    private static Path getIdsGeneratorConfigFile(String queueDir) {
         return Paths.get(getConfigDir(queueDir).toString(), IDS_CONFIG_FILE);
     }
 
@@ -123,6 +127,17 @@ public class FileQueue implements Queue {
     }
 
     @Override
+    public void invalidateNow(String queueUrl, String receiptHandle) {
+        addMessagesToBeginningOfFile(
+                removeMessagesFromFile(
+                        getInflightFile(queueUrl),
+                        BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle)
+                ),
+                getMessagesFile(queueUrl)
+        );
+    }
+
+    @Override
     public void deleteMessage(String queueUrl, String receiptHandle) {
         removeMessagesFromFile(getInflightFile(queueUrl), BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle));
     }
@@ -141,14 +156,9 @@ public class FileQueue implements Queue {
         }
     }
 
-    @Override
-    public void invalidateNow(String receiptHandle) {
-
-    }
-
     @SuppressWarnings("WeakerAccess")
     public static void init(String queueName) {
-        String queuesBaseDirStr = SQSRunner.getInstance().getProperty(SQS_QUEUES_DIR_KEY);
+        String queuesBaseDirStr = properties.getProperty(SQS_QUEUES_DIR_KEY);
 
         Path queueDir = Paths.get(queuesBaseDirStr, queueName);
         Path messagesFile = getMessagesFile(queueDir.toString());
@@ -159,6 +169,7 @@ public class FileQueue implements Queue {
             if (!Files.exists(queueDir)) {
                 Files.createDirectory(queueDir);
                 Files.createDirectory(configDir);
+                Files.createFile(getIdsGeneratorConfigFile(queueDir.toString()));
                 Files.createFile(messagesFile);
                 Files.createFile(inflightFile);
             }
@@ -166,6 +177,5 @@ public class FileQueue implements Queue {
             e.printStackTrace();
         }
     }
-
 
 }

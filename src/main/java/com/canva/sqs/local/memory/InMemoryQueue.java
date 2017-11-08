@@ -59,9 +59,10 @@ public class InMemoryQueue implements Queue {
     /**
      * TESTING purpose only!
      *
+     * @param queueUrl
      * @param receiptHandle message to invalidate inflight
      */
-    public void invalidateNow(String receiptHandle) {
+    public void invalidateNow(String queueUrl, String receiptHandle) {
         new InvalidationTask(receiptHandle).run();
     }
 

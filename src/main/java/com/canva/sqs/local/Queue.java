@@ -27,7 +27,8 @@ public interface Queue {
     /**
      * TESTING purpose only!
      *
+     * @param queueUrl
      * @param receiptHandle message to invalidate inflight
      */
-    void invalidateNow(String receiptHandle);
+    void invalidateNow(String queueUrl, String receiptHandle);
 }

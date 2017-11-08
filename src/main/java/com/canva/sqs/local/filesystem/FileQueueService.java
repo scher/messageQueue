@@ -15,7 +15,7 @@ import java.util.Properties;
 import static java.util.stream.Collectors.toList;
 
 public class FileQueueService extends AbstractLocalQueue {
-    private static final String SQS_QUEUES_DIR_KEY = "sqs.queues.dir";
+    public static final String SQS_QUEUES_DIR_KEY = "sqs.queues.dir";
     private static final String SEMAPHORE = "semaphore";
 
     private String queuesBaseDirStr;
@@ -25,6 +25,7 @@ public class FileQueueService extends AbstractLocalQueue {
         System.out.println("Initializing File System Queue Service");
         queuesBaseDirStr = props.getProperty(SQS_QUEUES_DIR_KEY);
         queuesBaseDir = Paths.get(queuesBaseDirStr);
+        FileQueue.setProperties(props);
     }
 
     private String getQueueSemaphore(String queueUrl) {
@@ -70,7 +71,17 @@ public class FileQueueService extends AbstractLocalQueue {
     @Override
     public CreateQueueResult createQueue(String queueName) {
         FileQueue.init(queueName);
-        return new CreateQueueResult().withQueueUrl(getQueueUrl(queueName).getQueueUrl());
+        GetQueueUrlResult queueUrl = getQueueUrl(queueName);
+        createQueueSemaphore(getQueueSemaphore(queueUrl.getQueueUrl()));
+        return new CreateQueueResult().withQueueUrl(queueUrl.getQueueUrl());
+    }
+
+    private void createQueueSemaphore(String queueSemaphore) {
+        try {
+            Files.createFile(Paths.get(queueSemaphore).toAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -99,11 +110,11 @@ public class FileQueueService extends AbstractLocalQueue {
     @Override
     public GetQueueUrlResult getQueueUrl(String queueName) {
         try {
-            if (Files.list(queuesBaseDir).map(Path::toString).anyMatch(s -> s.equals(queueName))) {
-                return new GetQueueUrlResult().withQueueUrl(queueName);
-            } else {
-                throw new QueueDoesNotExistException("Queue: " + queueName + " does not exist"); //according to AWS SQS
-            }
+            return Files.list(queuesBaseDir)
+                    .filter(p -> p.endsWith(queueName))
+                    .findFirst()
+                    .map(p -> new GetQueueUrlResult().withQueueUrl(p.toString()))
+                    .orElseThrow(() -> new QueueDoesNotExistException("Queue: " + queueName + " does not exist"));
         } catch (IOException e) {
             e.printStackTrace();
         }

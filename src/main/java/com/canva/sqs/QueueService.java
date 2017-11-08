@@ -46,4 +46,5 @@ public interface QueueService {
 
     GetQueueUrlResult getQueueUrl(String queueName);
 
+    void invalidateNow(String queueUrl, String receiptHandle);
 }

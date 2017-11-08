@@ -14,9 +14,12 @@ import static java.nio.file.StandardOpenOption.*;
 public class SemaphoreFile {
 
     public static void increaseCounter(String path) {
-        try (GlobalCloseableLock ignored = new GlobalCloseableLock(path)) {
+        try (GlobalCloseableLock ignored = new GlobalCloseableLock(path).lock()) {
             String value =
-                    Files.readAllLines(Paths.get(path)).stream().findFirst().map(s -> Integer.valueOf(s) + 1).orElse(1)
+                    Files.readAllLines(Paths.get(path)).stream()
+                            .findFirst()
+                            .map(s -> Integer.valueOf(s) + 1)
+                            .orElse(1)
                             .toString();
             Files.write(Paths.get(path), Collections.singleton(value), WRITE, TRUNCATE_EXISTING);
         } catch (IOException e) {
@@ -25,9 +28,12 @@ public class SemaphoreFile {
     }
 
     public static void decreaseCounter(String path) {
-        try (GlobalCloseableLock ignored = new GlobalCloseableLock(path)) {
+        try (GlobalCloseableLock ignored = new GlobalCloseableLock(path).lock()) {
             String value =
-                    Files.readAllLines(Paths.get(path)).stream().findFirst().map(s -> Integer.valueOf(s) - 1)
+                    Files.readAllLines(Paths.get(path)).stream()
+                            .findFirst()
+                            .map(s -> Integer.valueOf(s) - 1)
+                            .orElse(0)
                             .toString();
             Files.write(Paths.get(path), Collections.singleton(value), CREATE, WRITE, TRUNCATE_EXISTING);
         } catch (IOException e) {

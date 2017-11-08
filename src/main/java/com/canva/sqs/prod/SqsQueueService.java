@@ -50,4 +50,9 @@ public class SqsQueueService implements QueueService {
     public GetQueueUrlResult getQueueUrl(String queueName) {
         return sqsClient.getQueueUrl(queueName);
     }
+
+    @Override
+    public void invalidateNow(String queueUrl, String receiptHandle) {
+
+    }
 }
