@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.Properties;
 
@@ -19,17 +18,16 @@ import static com.canva.sqs.local.memory.InMemoryQueue.INFLIGHT_TIMEOUT_SECONDS_
 
 public class FileQueueTest extends TestCases {
 
+    private Path tempDirectory;
+
     @Before
-    public void init() {
+    public void init() throws IOException {
         Properties props = new Properties();
         String delay = String.valueOf(10);
+        tempDirectory = Files.createTempDirectory("sqs_tests");
+
         props.setProperty(INFLIGHT_TIMEOUT_SECONDS_KEY, delay);
-        props.setProperty(SQS_QUEUES_DIR_KEY, "/tmp/sqs");
-        try {
-            Files.createDirectory(Paths.get(props.getProperty(SQS_QUEUES_DIR_KEY)));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        props.setProperty(SQS_QUEUES_DIR_KEY, tempDirectory.toString());
         service = new FileQueueService(props);
         String queueName = "queueName";
         CreateQueueResult queue = service.createQueue(queueName);
@@ -39,11 +37,9 @@ public class FileQueueTest extends TestCases {
     @After
     public void cleanup() {
         try {
-            Path rootPath = Paths.get("/tmp/sqs");
-            Files.walk(rootPath, FileVisitOption.FOLLOW_LINKS)
+            Files.walk(tempDirectory, FileVisitOption.FOLLOW_LINKS)
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
-//                    .peek(System.out::println)
                     .forEach(File::delete);
         } catch (IOException e) {
             e.printStackTrace();

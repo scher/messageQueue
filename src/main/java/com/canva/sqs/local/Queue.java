@@ -15,7 +15,7 @@ import java.util.Optional;
  * @since 04/11/2017
  */
 public interface Queue {
-    String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
+    String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout.seconds";
 
     @Nonnull
     String sendMessage(String queueUrl, String messageBody);

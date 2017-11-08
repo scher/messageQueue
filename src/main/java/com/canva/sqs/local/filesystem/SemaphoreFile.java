@@ -10,7 +10,7 @@ import java.util.Collections;
 import static java.nio.file.StandardOpenOption.*;
 
 /**
- * File based implementation "semaphore" abstraction.
+ * File based implementation of "semaphore" abstraction.
  *
  * @see GlobalCloseableLock
  * @author Alexander Pronin

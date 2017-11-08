@@ -153,7 +153,7 @@ public class FileQueue implements Queue {
 
         Path queueUrl = Paths.get(queuesBaseDirStr, queueName);
 
-        try (GlobalCloseableLock ignored = new GlobalCloseableLock(queuesBaseDirStr).lock()) {
+        try (GlobalCloseableLock ignored = new GlobalCloseableLock(queuesBaseDirStr + "/").lock()) {
             if (!Files.exists(queueUrl)) {
                 Files.createDirectory(queueUrl);
                 Files.createFile(IDS_CONFIG.getPath(queueUrl.toString()));

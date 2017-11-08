@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.canva.sqs.local.filesystem.FileDescriptor.SEMAPHORE;
+import static java.nio.file.StandardOpenOption.CREATE;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -37,7 +38,13 @@ public class FileQueueService extends AbstractLocalQueue {
         System.out.println("Initializing File System Queue Service");
         queuesBaseDirStr = props.getProperty(SQS_QUEUES_DIR_KEY);
         queuesBaseDir = Paths.get(queuesBaseDirStr);
+        if (!Files.exists(queuesBaseDir)) {
+            String error = "SQS base dir does not exist: " + queuesBaseDirStr;
+            System.err.println(error);
+            throw new IllegalStateException(error);
+        }
         FileQueue.setProperties(props);
+
     }
 
     @Override
@@ -117,7 +124,7 @@ public class FileQueueService extends AbstractLocalQueue {
     @Override
     public ListQueuesResult listQueues() {
         List<String> queues = new ArrayList<>();
-        try (GlobalCloseableLock ignored = new GlobalCloseableLock(queuesBaseDirStr).lock()) {
+        try (GlobalCloseableLock ignored = new GlobalCloseableLock(queuesBaseDirStr + "/").lock()) {
             queues = Files.list(queuesBaseDir).map(Path::toString).collect(toList());
         } catch (IOException e) {
             e.printStackTrace();
@@ -141,7 +148,7 @@ public class FileQueueService extends AbstractLocalQueue {
 
     private void createQueueSemaphore(String queueSemaphore) {
         try {
-            Files.createFile(Paths.get(queueSemaphore).toAbsolutePath());
+            Files.write(Paths.get(queueSemaphore).toAbsolutePath(), new byte[0], CREATE);
         } catch (IOException e) {
             e.printStackTrace();
         }

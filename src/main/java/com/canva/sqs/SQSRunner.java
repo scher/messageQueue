@@ -1,8 +1,13 @@
 package com.canva.sqs;
 
 
+import com.amazonaws.services.sqs.model.CreateQueueResult;
+import com.amazonaws.services.sqs.model.ReceiveMessageResult;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Properties;
 
 /**
@@ -28,7 +33,10 @@ public class SQSRunner {
             properties = initProperties(flavor);
             String SQSImplClass = properties.getProperty(SQS_IMPL_KEY);
             // let's make initialization more complex
-            service = (QueueService) Class.forName(SQSImplClass).newInstance();
+
+            Class<?> c = Class.forName(SQSImplClass);
+            Constructor<?> cons = c.getConstructor(Properties.class);
+            service = (QueueService) cons.newInstance(properties);
 
         } catch (IllegalAccessException e) {
             e.printStackTrace();
@@ -37,6 +45,10 @@ public class SQSRunner {
         } catch (InstantiationException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
     }
@@ -49,10 +61,6 @@ public class SQSRunner {
         return INSTANCE;
     }
 
-    public String getProperty(String key) {
-        return properties.getProperty(key);
-    }
-
     private static Properties initProperties(String flavor) throws IOException {
         Properties properties = new Properties();
         InputStream input =
@@ -63,5 +71,18 @@ public class SQSRunner {
 
     private static String getFlavor() {
         return System.getenv(FLAVOR_KEY);
+    }
+
+    public static void main(String[] args) {
+        // some king of smoke test
+        QueueService sqsService = SQSRunner.getInstance().getSQSService();
+
+        String queueName = "queueName";
+        CreateQueueResult queueResult = sqsService.createQueue(queueName);
+        String queueUrl = queueResult.getQueueUrl();
+        sqsService.sendMessage(queueUrl, "I'm alive Master!");
+        ReceiveMessageResult receiveMessageResult = sqsService.receiveMessage(queueUrl);
+
+        System.out.println(receiveMessageResult.getMessages().get(0));
     }
 }

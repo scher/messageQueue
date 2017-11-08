@@ -25,7 +25,6 @@ import java.util.concurrent.*;
  */
 @ThreadSafe
 public class InMemoryQueue implements Queue {
-    public static final String INFLIGHT_TIMEOUT_SECONDS_KEY = "sqs.inflight.timeout";
     private final Properties props;
 
     private final ConcurrentLinkedDeque<Message> messages = new ConcurrentLinkedDeque<>();
