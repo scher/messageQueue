@@ -14,6 +14,11 @@ import java.util.Properties;
  * All Dependency Injection is situated here.
  * For other components it will be transparent which implementation of SQS they are using
  *
+ * Supported flavors: local, memory, prod.
+ * Set env. variable: flavor=memory
+ *
+ * Take a look at attached Intellij Idea Run Configuration
+ *
  * @author Alexander Pronin
  * @since 02/11/2017
  */
@@ -23,16 +28,14 @@ public class SQSRunner {
     private static final String SQS_IMPL_KEY = "sqs.impl";
 
     private QueueService service;
-    private Properties properties;
 
     private static final SQSRunner INSTANCE = new SQSRunner();
 
     private SQSRunner() {
         try {
             String flavor = getFlavor();
-            properties = initProperties(flavor);
+            Properties properties = initProperties(flavor);
             String SQSImplClass = properties.getProperty(SQS_IMPL_KEY);
-            // let's make initialization more complex
 
             Class<?> c = Class.forName(SQSImplClass);
             Constructor<?> cons = c.getConstructor(Properties.class);
