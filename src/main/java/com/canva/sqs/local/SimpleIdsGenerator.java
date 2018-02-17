@@ -1,8 +1,8 @@
 package com.canva.sqs.local;
 
 import com.amazonaws.services.sqs.model.Message;
-import org.apache.http.annotation.ThreadSafe;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**

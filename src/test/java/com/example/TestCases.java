@@ -153,7 +153,7 @@ public abstract class TestCases {
 
     @Test
     public void testReceiveMessageFIFO() {
-        String messageBody1 = "body1";
+        String messageBody1 = "body:1";
         service.sendMessage(queueUrl, messageBody1);
         String messageBody2 = "body";
         service.sendMessage(queueUrl, messageBody2);

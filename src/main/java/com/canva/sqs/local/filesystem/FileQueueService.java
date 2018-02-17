@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -33,6 +34,7 @@ public class FileQueueService extends AbstractLocalQueue {
 
     private final String queuesBaseDirStr;
     private final Path queuesBaseDir;
+    private Clock timeService = Clock.systemUTC();
 
     public FileQueueService(Properties props) {
         System.out.println("Initializing File System Queue Service");
@@ -45,6 +47,11 @@ public class FileQueueService extends AbstractLocalQueue {
         }
         FileQueue.setProperties(props);
 
+    }
+
+    public FileQueueService(Properties props, Clock timeService) {
+        this(props);
+        this.timeService = timeService;
     }
 
     @Override
@@ -89,7 +96,7 @@ public class FileQueueService extends AbstractLocalQueue {
      */
     @Override
     public CreateQueueResult createQueue(String queueName) {
-        FileQueue.init(queueName);
+        FileQueue.init(queueName, timeService);
         GetQueueUrlResult queueUrl = getQueueUrl(queueName);
         createQueueSemaphore(SEMAPHORE.getPath(queueUrl.getQueueUrl()).toString());
         return new CreateQueueResult().withQueueUrl(queueUrl.getQueueUrl());

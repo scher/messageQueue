@@ -1,9 +1,6 @@
 package com.canva.sqs;
 
 
-import com.amazonaws.services.sqs.model.CreateQueueResult;
-import com.amazonaws.services.sqs.model.ReceiveMessageResult;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -74,18 +71,5 @@ public class SQSRunner {
 
     private static String getFlavor() {
         return System.getenv(FLAVOR_KEY);
-    }
-
-    public static void main(String[] args) {
-        // some king of smoke test
-        QueueService sqsService = SQSRunner.getInstance().getSQSService();
-
-        String queueName = "queueName";
-        CreateQueueResult queueResult = sqsService.createQueue(queueName);
-        String queueUrl = queueResult.getQueueUrl();
-        sqsService.sendMessage(queueUrl, "I'm alive Master!");
-        ReceiveMessageResult receiveMessageResult = sqsService.receiveMessage(queueUrl);
-
-        System.out.println(receiveMessageResult.getMessages().get(0));
     }
 }

@@ -1,7 +1,6 @@
 package com.canva.sqs.local.filesystem;
 
-import org.apache.http.annotation.ThreadSafe;
-
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;

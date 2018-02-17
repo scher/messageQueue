@@ -12,6 +12,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Clock;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -90,47 +91,53 @@ public class FileQueue implements Queue {
     public String sendMessage(String queueUrl, String messageBody) {
         String messageId = getIdsGenerator(queueUrl).generateMessageId();
         Message message = new Message().withBody(messageBody).withMessageId(String.valueOf(messageId));
-        addMessageToEndOfFile(Collections.singletonList(message), MESSAGES.getPath(queueUrl));
+        addMessageToEndOfFile(Collections.singletonList(message), MESSAGES.getPath(queueUrl), timeService.millis());
         return messageId;
     }
 
     @Override
     public Optional<Message> receiveMessage(String queueUrl) {
         invalidateInflight(queueUrl);
-        return removeMessagesFromFile(MESSAGES.getPath(queueUrl), FIRST_MESSAGE_EXTRACTOR)
+        return removeMessagesFromFile(MESSAGES.getPath(queueUrl), FIRST_MESSAGE_EXTRACTOR, timeService.millis())
                 .stream()
                 .findFirst()
                 .map(message -> {
                     String receiptHandle = getIdsGenerator(queueUrl).generateRecipientHandlerId(message);
                     message.withReceiptHandle(receiptHandle);
-                    addMessageToEndOfFile(Collections.singletonList(message), INFLIGHT.getPath(queueUrl));
+                    addMessageToEndOfFile(Collections.singletonList(message), INFLIGHT.getPath(queueUrl),
+                            timeService.millis());
                     return message;
                 });
     }
 
     private void invalidateInflight(String queueUrl) {
-        long curTime = System.currentTimeMillis();
+        long curTime = getCurrentTime();
         addMessagesToBeginningOfFile(
                 removeMessagesFromFile(INFLIGHT.getPath(queueUrl),
-                        BY_INFLIGHT_DELAY_SPLITTER.apply(getInflightDelay(), curTime)),
-                MESSAGES.getPath(queueUrl)
+                        BY_INFLIGHT_DELAY_SPLITTER.apply(getInflightDelay(), curTime), timeService.millis()),
+                MESSAGES.getPath(queueUrl),
+                timeService.millis()
         );
     }
+
 
     @Override
     public void invalidateNow(String queueUrl, String receiptHandle) {
         addMessagesToBeginningOfFile(
                 removeMessagesFromFile(
                         INFLIGHT.getPath(queueUrl),
-                        BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle)
+                        BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle),
+                        timeService.millis()
                 ),
-                MESSAGES.getPath(queueUrl)
+                MESSAGES.getPath(queueUrl),
+                timeService.millis()
         );
     }
 
     @Override
     public void deleteMessage(String queueUrl, String receiptHandle) {
-        removeMessagesFromFile(INFLIGHT.getPath(queueUrl), BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle));
+        removeMessagesFromFile(INFLIGHT.getPath(queueUrl), BY_RECEIPT_HANDLER_SPLITTER.apply(receiptHandle),
+                timeService.millis());
     }
 
     @Override
@@ -147,9 +154,18 @@ public class FileQueue implements Queue {
         }
     }
 
+    static Clock timeService;
+
+
+    public long getCurrentTime() {
+        return timeService.millis();
+    }
+
     @SuppressWarnings("WeakerAccess")
-    public static void init(String queueName) {
+    public static void init(String queueName, Clock clock) {
         String queuesBaseDirStr = properties.getProperty(SQS_QUEUES_DIR_KEY);
+
+        timeService = clock;
 
         Path queueUrl = Paths.get(queuesBaseDirStr, queueName);
 
@@ -164,5 +180,6 @@ public class FileQueue implements Queue {
             e.printStackTrace();
         }
     }
+
 
 }
